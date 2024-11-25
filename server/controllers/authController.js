@@ -5,6 +5,7 @@ const sendMail = require("../utils/sendMail");
 const generateVerificationCode = require("../utils/generateVerificationCode");
 const hashPassword = require("../utils/hashPassword");
 const generateResetToken = require("../utils/generateResetToken");
+
 exports.register = async (req, res) => {
   const {
     name,
@@ -71,8 +72,6 @@ exports.resendVerificationCode = async (req, res) => {
     user.verificationExpiry = expiry;
 
     await user.save();
-
-    // Gửi email xác minh
     await sendMail(user.email, "verification", { code });
 
     res.status(200).json({ message: "Verification code resent successfully" });
@@ -82,39 +81,34 @@ exports.resendVerificationCode = async (req, res) => {
 };
 
 exports.verify = async (req, res) => {
-  const { email, code } = req.body; // Lấy email và mã xác thực từ request body
-
-  // Kiểm tra đầu vào
+  const { email, code } = req.body;
   if (!email || !code) {
     return res
       .status(400)
-      .json({ message: "Email và mã xác thực là bắt buộc." });
+      .json({ message: "Email and verification code are required." });
   }
 
   try {
-    // Tìm user trong database với email và mã xác thực
     const user = await User.findOne({ email, verificationCode: code });
 
     if (!user) {
       return res.status(404).json({
-        message: "Không tìm thấy người dùng hoặc mã xác thực không hợp lệ.",
+        message: "User not found or invalid verification code.",
       });
     }
-
-    // Cập nhật trạng thái tài khoản
     user.isVerified = true;
     user.isActive = true;
     user.verificationCode = "";
     user.verificationExpiry = null;
-    user.verificationCode = null; // Xóa mã xác thực sau khi xác minh thành công
+    user.verificationCode = null;
     await user.save();
 
     return res.status(200).json({
-      message: "Xác minh thành công. Tài khoản của bạn đã được kích hoạt.",
+      message: "Verification successful. Your account has been activated.",
     });
   } catch (error) {
-    console.error("Lỗi trong quá trình xác minh:", error);
-    res.status(500).json({ message: "Lỗi hệ thống." });
+    console.error("Error during verification:", error);
+    res.status(500).json({ message: "System error." });
   }
 };
 
@@ -150,6 +144,7 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 exports.requestPasswordReset = async (req, res) => {
   const { emailOrUsername } = req.body;
   try {
@@ -159,11 +154,14 @@ exports.requestPasswordReset = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
     const { resetToken, resetExpiry } = generateResetToken();
-    user.resetPasswordToken = await hashPassword(resetToken); // Hash token để bảo mật
+    user.resetPasswordToken = await hashPassword(resetToken);
     user.resetPasswordExpiry = resetExpiry;
     await user.save();
-    await sendMail(user.email, "passwordReset", { resetToken });
+
+    await sendMail(user.email, "passwordReset", { token: resetToken });
+
     res.status(200).json({ message: "Password reset link sent to your email" });
   } catch (error) {
     console.error("Error during password reset request:", error.message);
@@ -174,29 +172,19 @@ exports.requestPasswordReset = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   const token = req.headers.authorization;
   const { newPassword } = req.body;
+
   if (!token) {
     return res.status(400).json({ message: "Authorization token is required" });
   }
   try {
     const user = await User.findOne({
       resetPasswordExpiry: { $gt: new Date() },
+      resetPasswordToken: { $exists: true },
     });
-    if (!user) {
+    if (!user || !(await bcrypt.compare(token, user.resetPasswordToken))) {
       return res.status(400).json({ message: "Invalid or expired token" });
     }
-    const isTokenValid = await bcrypt.compare(token, user.resetPasswordToken);
-    if (!isTokenValid) {
-      return res.status(400).json({ message: "Invalid or expired token" });
-    }
-
-    const isSamePassword = await bcrypt.compare(newPassword, user.password);
-    if (isSamePassword) {
-      return res.status(400).json({
-        message: "New password must be different from the current password",
-      });
-    }
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
+    user.password = await hashPassword(newPassword);
     user.resetPasswordToken = null;
     user.resetPasswordExpiry = null;
     await user.save();

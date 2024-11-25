@@ -4,6 +4,8 @@ import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Verify from "../pages/Verify";
 import RequestPasswordReset from "../pages/RequestPasswordReset";
+import ResetPassword from "../pages/ResetPassword";
+
 const AuthRoutes = () => {
   return (
     <Routes>
@@ -14,6 +16,7 @@ const AuthRoutes = () => {
         path="/auth/request-password-reset"
         element={<RequestPasswordReset />}
       />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
     </Routes>
   );
 };
