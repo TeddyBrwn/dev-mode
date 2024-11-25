@@ -1,50 +1,59 @@
 import React, { useState } from "react";
-import API from "../api/api";
+import { useNavigate } from "react-router-dom"; // For navigation to another page
+import API from "../api/api"; // Adjust the path to your API instance
 
 const Login = () => {
-  const [credentials, setCredentials] = useState({
-    emailOrUsername: "",
-    password: "",
-  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setCredentials({ ...credentials, [e.target.name]: e.target.value });
-  };
-
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
     try {
-      const response = await API.post("/auth/login", credentials);
-      localStorage.setItem("token", response.data.token); // Save token
-      alert("Login successful!");
-      window.location.href = "/dashboard"; // Redirect to Dashboard
+      const response = await API.post("/auth/login", { email, password });
+      console.log("Login successful:", response.data);
+      // Redirect to dashboard or home on success
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Login failed. Please try again."
-      );
+      setError(err.response?.data?.error || "Login failed. Please try again.");
     }
   };
 
   return (
     <div>
-      <h2>Login</h2>
+      <h1>Login</h1>
+      <form onSubmit={handleLogin}>
+        <div>
+          <label>Email:</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label>Password:</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit">Login</button>
+      </form>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      <input
-        type="text"
-        name="emailOrUsername"
-        placeholder="Email or Username"
-        onChange={handleChange}
-      />
-      <input
-        type="password"
-        name="password"
-        placeholder="Password"
-        onChange={handleChange}
-      />
-      <button onClick={handleLogin}>Login</button>
-      <p>
-        Don't have an account? <a href="/register">Register here</a>
-      </p>
+
+      {/* Add the "Forgot Password?" button */}
+      <div style={{ marginTop: "20px" }}>
+        <button
+          type="button"
+          onClick={() => navigate("/auth/request-password-reset")}
+        >
+          Forgot Password?
+        </button>
+      </div>
     </div>
   );
 };
