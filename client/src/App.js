@@ -1,13 +1,14 @@
 import React from "react";
-import { BrowserRouter as Router } from "react-router-dom";
-import AuthRoutes from "./routes/AuthRoutes";
-import DashboardRoutes from "./routes/DashboardRoutes";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Products from "./components/Products"; // Import component Products
 
 const App = () => {
   return (
     <Router>
-      <AuthRoutes />
-      <DashboardRoutes />
+      <Routes>
+        <Route path="/products" element={<Products />} />{" "}
+        {/* Route cho danh sách sản phẩm */}
+      </Routes>
     </Router>
   );
 };
